@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS IA — Painel Admin</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --white:#fff;--bg:#f7f6f3;--surface:#fff;
+  --border:#e8e4de;--border2:#d4cfc8;
+  --text:#1a1916;--text2:#3d3a35;--muted:#7a7570;--muted2:#a09b95;
+  --accent:#1a56db;--accent2:#e84545;
+  --r:8px;--r2:14px;
+  --shadow:0 2px 14px rgba(0,0,0,.08);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',-apple-system,sans-serif;line-height:1.5}
+.wrap{max-width:900px;margin:0 auto;padding:2rem 1.25rem 5rem}
+h1{font-family:Georgia,serif;font-size:1.6rem;margin-bottom:.25rem}
+.sub{color:var(--muted);font-size:13px;margin-bottom:1.75rem}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:1.5rem;box-shadow:var(--shadow);margin-bottom:1.5rem}
+label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:.3rem;margin-top:1rem}
+label:first-child{margin-top:0}
+input[type=text],input[type=email],input[type=password],input[type=number],select,textarea{
+  width:100%;border:1.5px solid var(--border2);border-radius:var(--r);padding:9px 12px;font-size:14px;font-family:inherit;color:var(--text);background:#fff;outline:none;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+textarea{min-height:220px;resize:vertical;font-family:'Courier New',monospace;font-size:13px;line-height:1.6}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.row3{display:grid;grid-template-columns:2fr 1fr 1fr;gap:1rem}
+.chk-row{display:flex;gap:1.5rem;margin-top:1rem}
+.chk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text2)}
+.chk input{width:auto}
+.btn{background:var(--accent);color:#fff;border:none;border-radius:99px;padding:11px 22px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn:hover{opacity:.9}
+.btn.secondary{background:#fff;border:1.5px solid var(--border2);color:var(--text2)}
+.btn.danger{background:var(--accent2)}
+.btn.small{padding:6px 14px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:default}
+.toolbar{display:flex;gap:.4rem;margin-top:.4rem;flex-wrap:wrap}
+.toolbar button{background:var(--bg);border:1px solid var(--border2);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:'JetBrains Mono',monospace}
+.img-preview{width:100%;max-height:220px;object-fit:cover;border-radius:var(--r);margin-top:.6rem;display:none}
+.hint{font-size:11.5px;color:var(--muted2);margin-top:.3rem}
+.actions{display:flex;gap:.6rem;margin-top:1.5rem;align-items:center}
+.msg{font-size:13px;font-weight:600;margin-top:.75rem}
+.msg.ok{color:#16a34a}
+.msg.err{color:var(--accent2)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;padding:8px;border-bottom:1px solid var(--border)}
+td{padding:10px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:hover td{background:var(--bg)}
+.pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px}
+.pill.pub{background:#dcfce7;color:#16a34a}
+.pill.draft{background:#fef3c7;color:#b45309}
+.tdimg{width:44px;height:44px;border-radius:6px;object-fit:cover;display:block}
+.login-box{max-width:340px;margin:5rem auto 0}
+.topbar-admin{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
+.hidden{display:none}
+</style>
+</head>
+<body>
+
+<!-- ======= CONFIGURAÇÃO: cole aqui os dados do seu projeto Supabase ======= -->
+<script>
+const SUPABASE_URL = 'COLE_AQUI_SUA_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'COLE_AQUI_SUA_SUPABASE_ANON_KEY';
+</script>
+<!-- ========================================================================= -->
+
+<div id="loginScreen" class="wrap login-box">
+  <div class="card">
+    <h1>🔐 NEXUS IA</h1>
+    <div class="sub">Painel de administração</div>
+    <label>E-mail</label>
+    <input type="email" id="loginEmail" placeholder="voce@exemplo.com">
+    <label>Senha</label>
+    <input type="password" id="loginPass" placeholder="••••••••">
+    <div class="actions"><button class="btn" onclick="doLogin()">Entrar</button></div>
+    <div id="loginMsg" class="msg err"></div>
+  </div>
+</div>
+
+<div id="app" class="wrap hidden">
+  <div class="topbar-admin">
+    <div><h1>NEXUS IA — Admin</h1><div class="sub">Crie, edite e publique seus artigos</div></div>
+    <button class="btn secondary small" onclick="doLogout()">Sair</button>
+  </div>
+
+  <div class="card">
+    <h1 id="formTitle" style="font-size:1.1rem">Novo artigo</h1>
+    <input type="hidden" id="artId">
+
+    <label>Título</label>
+    <input type="text" id="title" placeholder="Ex: ChatGPT vs Gemini vs Claude em 2026" oninput="autoSlug()">
+
+    <label>Slug (URL do artigo — gerado automático, pode editar)</label>
+    <input type="text" id="slug" placeholder="chatgpt-vs-gemini-vs-claude-2026">
+
+    <label>Resumo (aparece nos cards da home)</label>
+    <input type="text" id="excerpt" placeholder="Uma frase curta e atraente sobre o artigo">
+
+    <div class="row3">
+      <div>
+        <label>Categoria</label>
+        <select id="category" onchange="onCategoryChange()"></select>
+      </div>
+      <div>
+        <label>Tempo de leitura (min)</label>
+        <input type="number" id="readMinutes" value="6" min="1">
+      </div>
+      <div>
+        <label>Autor</label>
+        <input type="text" id="author" value="Redação NEXUS IA">
+      </div>
+    </div>
+
+    <label>Imagem de capa</label>
+    <input type="file" id="imgFile" accept="image/*" onchange="uploadImage()">
+    <div class="hint">Ou cole uma URL de imagem direto:</div>
+    <input type="text" id="imageUrl" placeholder="https://...">
+    <img id="imgPreview" class="img-preview">
+    <div id="uploadMsg" class="msg"></div>
+
+    <label>Conteúdo do artigo (HTML simples)</label>
+    <div class="toolbar">
+      <button onclick="wrapTag('p')">Parágrafo</button>
+      <button onclick="wrapTag('h2')">Subtítulo</button>
+      <button onclick="wrapTag('strong')">Negrito</button>
+      <button onclick="wrapTag('blockquote')">Citação</button>
+      <button onclick="insertLink()">Link externo</button>
+    </div>
+    <textarea id="body" placeholder="&lt;p&gt;Primeiro parágrafo do artigo...&lt;/p&gt;
+&lt;h2&gt;Um subtítulo&lt;/h2&gt;
+&lt;p&gt;Mais texto aqui. Para link externo: &lt;a href=&quot;https://site.com&quot; target=&quot;_blank&quot;&gt;texto do link&lt;/a&gt;&lt;/p&gt;
+&lt;blockquote&gt;Uma frase de destaque&lt;/blockquote&gt;"></textarea>
+    <div class="hint">Selecione um trecho do texto e clique nos botões acima para envolver com a tag. Tags aceitas: &lt;p&gt;, &lt;h2&gt;, &lt;strong&gt;, &lt;blockquote&gt;, &lt;a href="..."&gt;.</div>
+
+    <div class="chk-row">
+      <label class="chk"><input type="checkbox" id="featured"> Destaque (aparece no topo da home)</label>
+      <label class="chk"><input type="checkbox" id="published"> Publicado (visível no site)</label>
+    </div>
+
+    <div class="actions">
+      <button class="btn" onclick="saveArticle()">Salvar artigo</button>
+      <button class="btn secondary" onclick="resetForm()">Limpar / novo</button>
+      <span id="saveMsg" class="msg"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h1 style="font-size:1.1rem;margin-bottom:1rem">Artigos existentes</h1>
+    <table>
+      <thead><tr><th></th><th>Título</th><th>Categoria</th><th>Status</th><th>Data</th><th></th></tr></thead>
+      <tbody id="articlesList"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const CATEGORIES = [
+  {name:'IA & Ferramentas', class:'cl-ia', emoji:'🤖'},
+  {name:'IA & Negócios', class:'cl-neg', emoji:'💼'},
+  {name:'IA Criativa', class:'cl-cri', emoji:'🎨'},
+  {name:'Educação', class:'cl-edu', emoji:'🎓'},
+  {name:'Segurança', class:'cl-seg', emoji:'🔒'},
+  {name:'IA & Dinheiro', class:'cl-din', emoji:'💰'},
+  {name:'Notícias', class:'cl-not', emoji:'📰'},
+];
+
+function populateCategories(){
+  const sel=document.getElementById('category');
+  sel.innerHTML=CATEGORIES.map(c=>`<option value="${c.name}">${c.emoji} ${c.name}</option>`).join('');
+}
+function onCategoryChange(){}
+
+function autoSlug(){
+  const t=document.getElementById('title').value;
+  const s=t.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9\s-]/g,'').trim()
+    .replace(/\s+/g,'-').replace(/-+/g,'-');
+  document.getElementById('slug').value=s;
+}
+
+function wrapTag(tag){
+  const ta=document.getElementById('body');
+  const start=ta.selectionStart,end=ta.selectionEnd;
+  const sel=ta.value.slice(start,end)||'texto aqui';
+  const before=ta.value.slice(0,start),after=ta.value.slice(end);
+  ta.value=before+`<${tag}>`+sel+`</${tag}>`+after;
+  ta.focus();
+}
+function insertLink(){
+  const url=prompt('Cole a URL do link externo:');
+  if(!url)return;
+  const ta=document.getElementById('body');
+  const start=ta.selectionStart,end=ta.selectionEnd;
+  const sel=ta.value.slice(start,end)||'texto do link';
+  const before=ta.value.slice(0,start),after=ta.value.slice(end);
+  ta.value=before+`<a href="${url}" target="_blank" rel="noopener">`+sel+`</a>`+after;
+  ta.focus();
+}
+
+// ---- LOGIN ----
+async function doLogin(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const pass=document.getElementById('loginPass').value;
+  const msg=document.getElementById('loginMsg');
+  msg.textContent='';
+  const {error}=await supabase.auth.signInWithPassword({email,password:pass});
+  if(error){msg.textContent='Erro: '+error.message;return;}
+  showApp();
+}
+async function doLogout(){await supabase.auth.signOut();location.reload();}
+
+async function showApp(){
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  populateCategories();
+  loadArticles();
+}
+
+async function checkSession(){
+  const {data}=await supabase.auth.getSession();
+  if(data.session){showApp();}
+}
+
+// ---- IMAGE UPLOAD ----
+async function uploadImage(){
+  const file=document.getElementById('imgFile').files[0];
+  if(!file)return;
+  const msg=document.getElementById('uploadMsg');
+  msg.className='msg';msg.textContent='Enviando imagem…';
+  const slug=document.getElementById('slug').value||'img';
+  const path=`${slug}/${Date.now()}-${file.name.replace(/\s+/g,'-')}`;
+  const {error}=await supabase.storage.from('article-images').upload(path,file,{upsert:true});
+  if(error){msg.className='msg err';msg.textContent='Erro no upload: '+error.message;return;}
+  const {data}=supabase.storage.from('article-images').getPublicUrl(path);
+  document.getElementById('imageUrl').value=data.publicUrl;
+  document.getElementById('imgPreview').src=data.publicUrl;
+  document.getElementById('imgPreview').style.display='block';
+  msg.className='msg ok';msg.textContent='✓ Imagem enviada';
+}
+document.getElementById('imageUrl') && document.getElementById('imageUrl').addEventListener('input',e=>{
+  const p=document.getElementById('imgPreview');
+  if(e.target.value){p.src=e.target.value;p.style.display='block';}
+});
+
+// ---- SAVE ----
+async function saveArticle(){
+  const msg=document.getElementById('saveMsg');
+  msg.className='msg';msg.textContent='Salvando…';
+  const cat=CATEGORIES.find(c=>c.name===document.getElementById('category').value);
+  const id=document.getElementById('artId').value;
+  const published=document.getElementById('published').checked;
+  const row={
+    slug:document.getElementById('slug').value.trim(),
+    title:document.getElementById('title').value.trim(),
+    excerpt:document.getElementById('excerpt').value.trim(),
+    body:document.getElementById('body').value,
+    image_url:document.getElementById('imageUrl').value.trim(),
+    category:cat.name, category_class:cat.class, emoji:cat.emoji,
+    read_minutes:parseInt(document.getElementById('readMinutes').value)||5,
+    author:document.getElementById('author').value.trim()||'Redação NEXUS IA',
+    featured:document.getElementById('featured').checked,
+    published,
+    published_at: published ? new Date().toISOString() : null,
+  };
+  if(!row.slug||!row.title){msg.className='msg err';msg.textContent='Preencha ao menos título e slug.';return;}
+
+  let error;
+  if(id){
+    ({error}=await supabase.from('articles').update(row).eq('id',id));
+  }else{
+    ({error}=await supabase.from('articles').insert(row));
+  }
+  if(error){msg.className='msg err';msg.textContent='Erro: '+error.message;return;}
+  msg.className='msg ok';msg.textContent='✓ Salvo com sucesso';
+  resetForm();
+  loadArticles();
+}
+
+function resetForm(){
+  document.getElementById('artId').value='';
+  document.getElementById('formTitle').textContent='Novo artigo';
+  ['title','slug','excerpt','imageUrl','body'].forEach(f=>document.getElementById(f).value='');
+  document.getElementById('readMinutes').value=6;
+  document.getElementById('author').value='Redação NEXUS IA';
+  document.getElementById('featured').checked=false;
+  document.getElementById('published').checked=false;
+  document.getElementById('imgPreview').style.display='none';
+  document.getElementById('saveMsg').textContent='';
+  document.getElementById('uploadMsg').textContent='';
+}
+
+// ---- LIST / EDIT / DELETE ----
+async function loadArticles(){
+  const {data,error}=await supabase.from('articles').select('*').order('created_at',{ascending:false});
+  const tbody=document.getElementById('articlesList');
+  if(error){tbody.innerHTML=`<tr><td colspan="6">Erro ao carregar: ${error.message}</td></tr>`;return;}
+  tbody.innerHTML=data.map(a=>`
+    <tr>
+      <td>${a.image_url?`<img class="tdimg" src="${a.image_url}">`:''}</td>
+      <td>${a.title}</td>
+      <td>${a.category}</td>
+      <td><span class="pill ${a.published?'pub':'draft'}">${a.published?'Publicado':'Rascunho'}</span></td>
+      <td>${new Date(a.created_at).toLocaleDateString('pt-BR')}</td>
+      <td style="white-space:nowrap">
+        <button class="btn secondary small" onclick="editArticle('${a.id}')">Editar</button>
+        <button class="btn danger small" onclick="deleteArticle('${a.id}')">Apagar</button>
+      </td>
+    </tr>`).join('');
+  window.__articlesCache=data;
+}
+
+function editArticle(id){
+  const a=window.__articlesCache.find(x=>x.id===id);
+  if(!a)return;
+  document.getElementById('artId').value=a.id;
+  document.getElementById('formTitle').textContent='Editando: '+a.title;
+  document.getElementById('title').value=a.title;
+  document.getElementById('slug').value=a.slug;
+  document.getElementById('excerpt').value=a.excerpt;
+  document.getElementById('category').value=a.category;
+  document.getElementById('readMinutes').value=a.read_minutes;
+  document.getElementById('author').value=a.author;
+  document.getElementById('imageUrl').value=a.image_url;
+  document.getElementById('body').value=a.body;
+  document.getElementById('featured').checked=a.featured;
+  document.getElementById('published').checked=a.published;
+  if(a.image_url){document.getElementById('imgPreview').src=a.image_url;document.getElementById('imgPreview').style.display='block';}
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+async function deleteArticle(id){
+  if(!confirm('Tem certeza que quer apagar este artigo? Essa ação não pode ser desfeita.'))return;
+  const {error}=await supabase.from('articles').delete().eq('id',id);
+  if(error){alert('Erro: '+error.message);return;}
+  loadArticles();
+}
+
+checkSession();
+</script>
+</body>
+</html>
